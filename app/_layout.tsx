@@ -1,24 +1,32 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { ThemeProvider, useTheme } from "@/context/ThemeContext";
+import { ping } from "@/lib/appwrite";
+import { useEffect } from "react";
+import "react-native-url-polyfill/auto";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import "./global.css";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+function ThemeAwareStatusBar() {
+  const { isDark } = useTheme();
+  return (
+    <StatusBar style={isDark ? "light" : "dark"} />
+  );
+}
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  useEffect(() => {
+    ping().catch(() => {
+      // Ignore: health endpoint may require health.read scope; app works without it
+    });
+  }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider>
+      <ThemeAwareStatusBar />
       <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    <Stack.Screen name="movies/[id]" options={{ headerShown: false }} />
       </Stack>
-      <StatusBar style="auto" />
     </ThemeProvider>
   );
 }
