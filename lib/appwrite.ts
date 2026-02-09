@@ -1,15 +1,14 @@
 import { Client, Databases, ID, Query } from "react-native-appwrite";
 
+// All IDs from .env — never commit real project/database/collection IDs to the repo
 const ENDPOINT =
   process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT ?? "https://fra.cloud.appwrite.io/v1";
-const PROJECT_ID =
-  process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID ?? "6987120c0037f2465c46";
-const DATABASE_ID =
-  process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID ?? "6987143b003e248a5459";
+const PROJECT_ID = process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID ?? "";
+const DATABASE_ID = process.env.EXPO_PUBLIC_APPWRITE_DATABASE_ID ?? "";
 const COLLECTION_ID =
-  process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_ID ?? "moviesearchcount";
+  process.env.EXPO_PUBLIC_APPWRITE_COLLECTION_ID ?? "";
 const SAVED_COLLECTION_ID =
-  process.env.EXPO_PUBLIC_APPWRITE_SAVED_COLLECTION_ID ?? "saved_movie";
+  process.env.EXPO_PUBLIC_APPWRITE_SAVED_COLLECTION_ID ?? "";
 // Ensure collections allow: Create, Read, Update, Delete for role "guests" in Appwrite Console
 
 const client = new Client().setProject(PROJECT_ID).setEndpoint(ENDPOINT);
