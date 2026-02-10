@@ -1,20 +1,26 @@
-import {
-    ActivityIndicator,
-    Dimensions,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { useAuth } from "@/context/AuthContext";
 import { useTheme, type ThemeColors } from "@/context/ThemeContext";
+import { getTrendingBySearchCount, recordMovieSearch } from "@/lib/appwrite";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getTrendingBySearchCount, recordMovieSearch } from "@/lib/appwrite";
-import { fetchMovie, fetchMovieById, GenreKey, GENRES } from "../../service/api";
+import {
+  fetchMovie,
+  fetchMovieById,
+  GenreKey,
+  GENRES,
+} from "../../service/api";
 import SearchBar from "../components/SearchBar";
 
 type Movie = {
@@ -33,15 +39,20 @@ const TRENDING_CARD_HEIGHT = TRENDING_CARD_WIDTH * 1.5;
 
 export default function Home() {
   const { colors } = useTheme();
+  const { userId } = useAuth();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<GenreKey>("All");
   const [movies, setMovies] = useState<Movie[]>([]);
   const [trendingMovies, setTrendingMovies] = useState<Movie[]>([]);
+  const [trendingForYou, setTrendingForYou] = useState(false);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const styles = useMemo(() => StyleSheet.create(createHomeStyles(colors)), [colors]);
+  const styles = useMemo(
+    () => StyleSheet.create(createHomeStyles(colors)),
+    [colors],
+  );
 
   const loadMovies = useCallback(
     async (query?: string, category?: GenreKey) => {
@@ -49,9 +60,7 @@ export default function Home() {
         setLoading(true);
         setError(null);
 
-        const genreId = category
-          ? GENRES[category]
-          : GENRES[selectedCategory];
+        const genreId = category ? GENRES[category] : GENRES[selectedCategory];
 
         const result = await fetchMovie({
           query: query || undefined,
@@ -65,15 +74,22 @@ export default function Home() {
         setLoading(false);
       }
     },
-    [selectedCategory]
+    [selectedCategory],
   );
 
   const loadTrending = useCallback(async () => {
     setTrendingLoading(true);
     try {
-      const docs = await getTrendingBySearchCount(10);
+      const isLoggedIn = userId != null && userId > 0;
+      let docs = await getTrendingBySearchCount(10, isLoggedIn ? userId : undefined);
+      let forYou = isLoggedIn && docs.length > 0;
+      if (isLoggedIn && docs.length === 0) {
+        docs = await getTrendingBySearchCount(10, undefined);
+        forYou = false;
+      }
+      setTrendingForYou(forYou);
       const details = await Promise.all(
-        docs.map((d) => fetchMovieById(String(d.movieId)))
+        docs.map((d) => fetchMovieById(String(d.movieId))),
       );
       const list: Movie[] = details
         .filter((m): m is NonNullable<typeof m> => m != null)
@@ -88,27 +104,31 @@ export default function Home() {
       setTrendingMovies(list);
     } catch {
       setTrendingMovies([]);
+      setTrendingForYou(false);
     } finally {
       setTrendingLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
       loadMovies();
       loadTrending();
-    }, [loadMovies, loadTrending])
+    }, [loadMovies, loadTrending]),
   );
 
   const featuredMovies = movies.slice(0, 5);
 
-  const openMovie = (movie: Movie) => {
-    if (searchQuery.trim()) {
+  const openMovie = (movie: Movie, recordSearch?: boolean) => {
+    const shouldRecord =
+      recordSearch || (searchQuery.trim().length > 0);
+    if (shouldRecord) {
       recordMovieSearch(movie.id, {
         posterUrl: movie.poster_path
           ? `${IMAGE_BASE_URL}${movie.poster_path}`
           : null,
         movieTitle: movie.title,
+        userId: userId ?? 0,
       }).catch(() => {});
     }
     router.push(`/movies/${movie.id}`);
@@ -175,7 +195,11 @@ export default function Home() {
             <View style={styles.trendingSection}>
               <View style={styles.trendingHeader}>
                 <Text style={styles.trendingTitle}>Trending</Text>
-                <Text style={styles.trendingSubtitle}>Most searched movies</Text>
+                <Text style={styles.trendingSubtitle}>
+                  {trendingForYou
+                    ? "Most searched by you"
+                    : "Most searched"}
+                </Text>
               </View>
               {trendingLoading ? (
                 <View style={styles.trendingLoader}>
@@ -192,7 +216,7 @@ export default function Home() {
                       key={movie.id}
                       movie={movie}
                       rank={index + 1}
-                      onPress={() => router.push(`/movies/${movie.id}`)}
+                      onPress={() => openMovie(movie, true)}
                       styles={styles}
                     />
                   ))}
@@ -399,7 +423,11 @@ const MovieCard = ({
     : "N/A";
 
   return (
-    <TouchableOpacity style={styles.movieCard} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={styles.movieCard}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
       <View style={styles.moviePosterContainer}>
         <Image
           source={{

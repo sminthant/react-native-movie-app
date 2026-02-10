@@ -1,17 +1,19 @@
+import { useAuth } from "@/context/AuthContext";
+import { useTheme, type ThemeColors } from "@/context/ThemeContext";
 import {
   deleteSavedMovie,
   listSavedMovies,
   type SavedMovieDoc,
 } from "@/lib/appwrite";
-import { useTheme, type ThemeColors } from "@/context/ThemeContext";
 import { useFocusEffect } from "@react-navigation/native";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -98,24 +100,41 @@ function createSavedStyles(colors: ThemeColors) {
       flexWrap: "wrap" as const,
       justifyContent: "space-between" as const,
     },
+    signInPrompt: {
+      fontSize: 16,
+      color: colors.textMuted,
+      textAlign: "center" as const,
+      marginBottom: 16,
+    },
+    signInLink: {
+      fontSize: 16,
+      fontWeight: "600" as const,
+      color: colors.primary,
+    },
   };
 }
 
 export default function Saved() {
   const { colors } = useTheme();
+  const { userId } = useAuth();
   const router = useRouter();
   const [items, setItems] = useState<SavedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const styles = useMemo(
     () => StyleSheet.create(createSavedStyles(colors) as any),
-    [colors]
+    [colors],
   );
 
   const loadSaved = useCallback(async () => {
+    if (!userId) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const docs = await listSavedMovies();
+      const docs = await listSavedMovies(userId);
       const withDetails: SavedItem[] = await Promise.all(
         docs.map(async (doc) => {
           const movie = await fetchMovieById(String(doc.movieId));
@@ -125,7 +144,7 @@ export default function Saved() {
             poster_path: movie?.poster_path ?? null,
             release_date: movie?.release_date,
           };
-        })
+        }),
       );
       setItems(withDetails);
     } catch (err) {
@@ -134,34 +153,31 @@ export default function Saved() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
       loadSaved();
-    }, [loadSaved])
+    }, [loadSaved]),
   );
 
   const openMovie = useCallback(
     (movieId: number) => router.push(`/movies/${movieId}`),
-    [router]
+    [router],
   );
 
-  const removeSaved = useCallback(
-    async (documentId: string, e?: any) => {
-      e?.stopPropagation?.();
-      setRemovingId(documentId);
-      try {
-        await deleteSavedMovie(documentId);
-        setItems((prev) => prev.filter((i) => i.$id !== documentId));
-      } catch (err) {
-        console.warn("Failed to remove saved movie:", err);
-      } finally {
-        setRemovingId(null);
-      }
-    },
-    []
-  );
+  const removeSaved = useCallback(async (documentId: string, e?: any) => {
+    e?.stopPropagation?.();
+    setRemovingId(documentId);
+    try {
+      await deleteSavedMovie(documentId);
+      setItems((prev) => prev.filter((i) => i.$id !== documentId));
+    } catch (err) {
+      console.warn("Failed to remove saved movie:", err);
+    } finally {
+      setRemovingId(null);
+    }
+  }, []);
 
   const renderItem = useCallback(
     ({ item }: { item: SavedItem }) => {
@@ -203,7 +219,7 @@ export default function Saved() {
         </View>
       );
     },
-    [styles, removingId, removeSaved, openMovie]
+    [styles, removingId, removeSaved, openMovie],
   );
 
   const keyExtractor = useCallback((item: SavedItem) => item.$id, []);
@@ -214,13 +230,26 @@ export default function Saved() {
         <View style={styles.header}>
           <Text style={styles.title}>Saved</Text>
           <Text style={styles.subtitle}>
-            {items.length === 0 && !loading
-              ? "Save movies from their detail page to see them here."
-              : `${items.length} saved`}
+            {!userId
+              ? "Sign in to save movies and see them here."
+              : items.length === 0 && !loading
+                ? "Save movies from their detail page to see them here."
+                : `${items.length} saved`}
           </Text>
         </View>
 
-        {loading ? (
+        {!userId ? (
+          <View style={styles.center}>
+            <Text style={styles.signInPrompt}>
+              Sign in to see your saved movies
+            </Text>
+            <Link href="/(auth)/login" asChild>
+              <Pressable>
+                <Text style={styles.signInLink}>Sign in</Text>
+              </Pressable>
+            </Link>
+          </View>
+        ) : loading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>

@@ -1,16 +1,15 @@
+import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import { ping } from "@/lib/appwrite";
-import { useEffect } from "react";
-import "react-native-url-polyfill/auto";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import "react-native-url-polyfill/auto";
 import "./global.css";
 
 function ThemeAwareStatusBar() {
   const { isDark } = useTheme();
-  return (
-    <StatusBar style={isDark ? "light" : "dark"} />
-  );
+  return <StatusBar style={isDark ? "light" : "dark"} />;
 }
 
 export default function RootLayout() {
@@ -22,11 +21,15 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <ThemeAwareStatusBar />
-      <Stack>
-    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    <Stack.Screen name="movies/[id]" options={{ headerShown: false }} />
-      </Stack>
+      <AuthProvider>
+        <ThemeAwareStatusBar />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="movies/[id]" />
+        </Stack>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

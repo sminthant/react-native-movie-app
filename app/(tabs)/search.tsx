@@ -1,4 +1,6 @@
+import { useAuth } from "@/context/AuthContext";
 import { useTheme, type ThemeColors } from "@/context/ThemeContext";
+import { recordMovieSearch } from "@/lib/appwrite";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -12,7 +14,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { recordMovieSearch } from "@/lib/appwrite";
 import { fetchMovie } from "../../service/api";
 import SearchBar from "../components/SearchBar";
 
@@ -36,6 +37,7 @@ const CARD_WIDTH = (SCREEN_WIDTH - 60) / 2;
 /* ---------- MAIN ---------- */
 export default function Search() {
   const { colors } = useTheme();
+  const { userId } = useAuth();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [movies, setMovies] = useState<Movie[]>([]);
@@ -43,7 +45,7 @@ export default function Search() {
   const [searched, setSearched] = useState(false);
   const styles = useMemo(
     () => StyleSheet.create(createSearchStyles(colors)),
-    [colors]
+    [colors],
   );
 
   /* ---------- AUTO SEARCH (DEBOUNCE) ---------- */
@@ -76,6 +78,7 @@ export default function Search() {
     recordMovieSearch(movie.id, {
       posterUrl: buildPosterUrl(movie.poster_path),
       movieTitle: movie.title,
+      userId: userId || 0,
     }).catch((err) => {
       console.warn("Failed to record movie search in Appwrite:", err);
     });
@@ -211,7 +214,11 @@ function createSearchStyles(colors: ThemeColors) {
       alignItems: "center" as const,
     },
     hint: { fontSize: 15, color: colors.textMuted },
-    emptyText: { fontSize: 16, color: colors.textSecondary, textAlign: "center" as const },
+    emptyText: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      textAlign: "center" as const,
+    },
     grid: {
       flexDirection: "row" as const,
       flexWrap: "wrap" as const,
